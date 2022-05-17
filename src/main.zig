@@ -12,6 +12,7 @@ const max_rank = 32;
 
 //change to *@This()?
 const Self = @This();
+const Rank = std.math.IntFittingRange(0, max_rank);
 
 //do we really need independent item?
 //can't we merge it to key?
@@ -23,7 +24,7 @@ child: ?*Self = null,
 next: ?*Self = null,
 //second parent
 mom: ?*Self = null,
-rank: std.math.IntFittingRange(0, max_rank) = 0,
+rank: Rank = 0,
 
 // pub fn new(k: K, v: V, allocator:Allocator) Self {
 //     return .{
@@ -80,7 +81,7 @@ pub fn delete(self: *Self, a: *Self, allocator: Allocator) ?*Self {
 
     var h = self;
     var A = [1]?*Self{null} ** max_rank;
-    var real_max_rank: u32 = 0;
+    var real_max_rank: Rank = 0;
     while (true) {
         const v = h; //what is this doing?
 
@@ -118,7 +119,7 @@ pub fn delete(self: *Self, a: *Self, allocator: Allocator) ?*Self {
                 }
                 A[u.rank] = u;
                 if (u.rank == real_max_rank) {
-                    real_max_rank = u.rank;
+                    real_max_rank += 1;
                 }
             }
             allocator.destroy(v);
@@ -128,7 +129,9 @@ pub fn delete(self: *Self, a: *Self, allocator: Allocator) ?*Self {
     }
     //do unranked links
     var ret = h; // which is null
-    for (A) |x| {
+    //up to real_max_rank in paper
+    //don't really matter in reality?
+    for (A[0..real_max_rank]) |x| {
         if (x) |y| {
             if (ret == null) {
                 ret = y;
