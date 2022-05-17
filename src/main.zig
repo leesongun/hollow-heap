@@ -1,8 +1,15 @@
 //https://github.com/ziglang/zig/issues/1108
+//https://github.com/ziglang/zig/issues/5611
+
+//and potentially
+//https://github.com/ziglang/zig/issues/3952
 
 const K = u32;
 const V = u32;
-const Allocator = @import("std").mem.Allocator;
+const std = @import("std");
+const Allocator = mem.Allocator;
+const max_rank = 32;
+
 //change to *@This()?
 const Self = @This();
 
@@ -16,9 +23,9 @@ child: ?*Self = null,
 next: ?*Self = null,
 //second parent
 mom: ?*Self = null,
-rank: u32 = 0,
+rank: std.math.IntFittingRange(0, max_rank) = 0,
 
-// pub fn new(k: K, v: V) Self {
+// pub fn new(k: K, v: V, allocator:Allocator) Self {
 //     return .{
 
 //     };
@@ -69,31 +76,67 @@ pub fn delete(self: *Self, a: *Self, allocator: Allocator) ?*Self {
     a.item = null;
     // Non-minimum deletion
     if (self.item != null) return h;
-    var max_rank: u32 = 0;
+    //from this point a==self
+
     var h = self;
-    
-    //loop for all child
+    var A = [1]?*Self{null} ** max_rank;
+    var real_max_rank: u32 = 0;
     while (true) {
-        //temporarily use ep to track A
+        const v = h; //what is this doing?
+
+        //loop for all child of h
         var w = h.child;
-        var v = h;
-        if(h.next == null)break;
-        h = h.next;
         while (w != null) {
             var u = w;
             w = w.next;
+            //one of case a,b,c
             if (u.item == null) {
+                //case a
                 if (u.ep == null) {
                     u.next = h;
                     h = u;
                 } else {
-                    unreachable;
+                    //case b
+                    if (u.ep == v) {
+                        //v is last child
+                        w = null;
+                    }
+                    //case c
+                    else {
+                        u.next = null;
+                    }
+                    u.ep = null;
                 }
-            } else {
-                do_ranked_lists(u);
             }
-            free(v);
+            //case d
+            else {
+                //do ranked link
+                while (A[u.rank] != null) {
+                    u = link(u, A[u.rank]);
+                    A[u.rank] = null;
+                    u.rank += 1;
+                }
+                A[u.rank] = u;
+                if (u.rank == real_max_rank) {
+                    real_max_rank = u.rank;
+                }
+            }
+            allocator.destroy(v);
+        }
+        //make this in defer?
+        h = h.next orelse break;
+    }
+    //do unranked links
+    var ret = h; // which is null
+    for (A) |x| {
+        if (x) |y| {
+            if (ret == null) {
+                ret = y;
+            } else {
+                ret = link(ret, y);
+            }
+            //deleting A[i] don't have any meaning
         }
     }
-    return h;
+    return ret;
 }
