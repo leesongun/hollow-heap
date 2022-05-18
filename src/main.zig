@@ -4,21 +4,24 @@
 //and potentially
 //https://github.com/ziglang/zig/issues/3952
 
+const std = @import("std");
+const Allocator = std.mem.Allocator;
+const assert = std.debug.assert;
+
 const K = u32;
 const V = u32;
-const std = @import("std");
-const Allocator = mem.Allocator;
 const max_rank = 32;
+const Rank = std.math.IntFittingRange(0, max_rank);
 
 //change to *@This()?
 const Self = @This();
-const Rank = std.math.IntFittingRange(0, max_rank);
 
 //do we really need independent item?
 //can't we merge it to key?
 key: K,
 //item = min
-item: ?*V,
+//recommend using pointer
+item: ?V,
 child: ?*Self = null,
 //younger sibling
 next: ?*Self = null,
@@ -32,6 +35,10 @@ rank: Rank = 0,
 //     };
 // }
 
+fn min(noalias self: *Self) V {
+    return self.item orelse unreachable;
+}
+
 //noalias
 fn add_child(noalias self: *Self, noalias child: *Self) void {
     child.*.next = self.child;
@@ -42,6 +49,7 @@ fn is_hollow() void {
 }
 //meld
 pub fn link(noalias a: *Self, noalias b: *Self) *Self {
+    //change to cmp operator
     if (a.key >= b.key) {
         b.add_child(a);
         return b;
@@ -76,7 +84,7 @@ pub fn decrease(self: *Self, entry: *Self, newkey: K, allocator: Allocator) *Sel
 pub fn delete(self: *Self, a: *Self, allocator: Allocator) ?*Self {
     a.item = null;
     // Non-minimum deletion
-    if (self.item != null) return h;
+    if (self.item != null) return self;
     //from this point a==self
 
     var h = self;
@@ -118,8 +126,8 @@ pub fn delete(self: *Self, a: *Self, allocator: Allocator) ?*Self {
                     u.rank += 1;
                 }
                 A[u.rank] = u;
-                if (u.rank == real_max_rank) {
-                    real_max_rank += 1;
+                if (u.rank >= real_max_rank) {
+                    real_max_rank = u.rank + 1;
                 }
             }
             allocator.destroy(v);
@@ -133,11 +141,7 @@ pub fn delete(self: *Self, a: *Self, allocator: Allocator) ?*Self {
     //don't really matter in reality?
     for (A[0..real_max_rank]) |x| {
         if (x) |y| {
-            if (ret == null) {
-                ret = y;
-            } else {
-                ret = link(ret, y);
-            }
+            ret = if (ret) |t| link(t, y) else y;
             //deleting A[i] don't have any meaning
         }
     }
