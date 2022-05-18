@@ -9,8 +9,16 @@ A hollow heap is a DAG with following properties.
 
 All primitive operations are lazy. For simplicity, we assume the DAG is not empty.
 ```Python
-fn get():
-    a
+def new(k, v):
+    #dosomething
+    return ...
+def min(h):
+    """Assumes normlized DAG"""
+    return h.value
+def link(g, h):
+    unimplemented
+def delete(h):
+    h.value = null
 ```
 
 The nontrivial part is normalization, which makes the root a full node. This is done in three steps.
@@ -18,7 +26,7 @@ The nontrivial part is normalization, which makes the root a full node. This is 
 2. for two roots with same rank, link them and bump rank
 3. link remaining roots from small rank
 ```Python
-fn normalize():
+def normalize(h):
 
 #do something
 ```

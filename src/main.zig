@@ -29,17 +29,19 @@ next: ?*Self = null,
 mom: ?*Self = null,
 rank: Rank = 0,
 
-// pub fn new(k: K, v: V, allocator:Allocator) Self {
-//     return .{
+pub fn new(k: K, v: V, allocator: Allocator) *Self {
+    const ret = try allocator.create(Self) catch unreachable;
+    ret.* = Self{
+        .key = k,
+        .item = v,
+    };
+    return ret;
+}
 
-//     };
-// }
-
+//normalize
 fn min(noalias self: *Self) V {
     return self.item orelse unreachable;
 }
-
-//noalias
 fn add_child(noalias self: *Self, noalias child: *Self) void {
     child.*.next = self.child;
     self.*.child = child;
@@ -81,23 +83,23 @@ pub fn decrease(self: *Self, entry: *Self, newkey: K, allocator: Allocator) *Sel
     return link(v, self);
 }
 
-pub fn delete(self: *Self, a: *Self, allocator: Allocator) ?*Self {
+pub fn delete(self: *Self) void {
     a.item = null;
-    // Non-minimum deletion
-    if (self.item != null) return self;
-    //from this point a==self
+}
 
-    var h = self;
+pub fn normalize(self: *Self, allocator: Allocator) ?*Self {
+    if (self.item != null) break;
+
+    var h: ?*Self = self;
     var A = [1]?*Self{null} ** max_rank;
     var real_max_rank: Rank = 0;
-    while (true) {
-        const v = h; //what is this doing?
-
+    while (h != null) |v| {
+        h = h.next;
         //loop for all child of h
-        var w = h.child;
-        while (w != null) {
+        var ww = h.child;
+        while (ww) |w| {
             var u = w;
-            w = w.next;
+            ww = w.next;
             //one of case a,b,c
             if (u.item == null) {
                 //case a
@@ -108,7 +110,7 @@ pub fn delete(self: *Self, a: *Self, allocator: Allocator) ?*Self {
                     //case b
                     if (u.ep == v) {
                         //v is last child
-                        w = null;
+                        ww = null;
                     }
                     //case c
                     else {
@@ -120,8 +122,8 @@ pub fn delete(self: *Self, a: *Self, allocator: Allocator) ?*Self {
             //case d
             else {
                 //do ranked link
-                while (A[u.rank] != null) {
-                    u = link(u, A[u.rank]);
+                while (A[u.rank]) |x| {
+                    u = link(u, x);
                     A[u.rank] = null;
                     u.rank += 1;
                 }
@@ -132,8 +134,6 @@ pub fn delete(self: *Self, a: *Self, allocator: Allocator) ?*Self {
             }
             allocator.destroy(v);
         }
-        //make this in defer?
-        h = h.next orelse break;
     }
     //do unranked links
     var ret = h; // which is null
