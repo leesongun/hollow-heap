@@ -1,5 +1,4 @@
 //https://github.com/ziglang/zig/issues/1108
-//https://github.com/ziglang/zig/issues/5611
 
 //and potentially
 //https://github.com/ziglang/zig/issues/3952
@@ -9,50 +8,45 @@ const Allocator = std.mem.Allocator;
 const assert = std.debug.assert;
 
 const K = usize;
-const V = usize;
 const max_rank = 50;
 const Rank = std.math.IntFittingRange(0, max_rank);
 
 //change to *@This()?
-const Self = @This();
+const Self = *@This();
 
-//do we really need independent item?
-//can't we merge it to key?
-key: K,
-//item = min
-//recommend using pointer
-item: ?V,
-child: ?*Self = null,
+key: ?K,
+child: ?Self = null,
 //younger sibling
-next: ?*Self = null,
+next: ?Self = null,
 //second parent
-mom: ?*Self = null,
+mom: ?Self = null,
 rank: Rank = 0,
 
-pub fn new(k: K, v: V, allocator: Allocator) *Self {
-    const ret = allocator.create(Self) catch unreachable;
-    ret.* = Self{
-        .key = k,
-        .item = v,
-    };
-    return ret;
-}
-
-//normalize
-fn min(noalias self: *Self) V {
-    return self.item orelse unreachable;
-}
-fn add_child(noalias self: *Self, noalias child: *Self) void {
+fn add_child(noalias self: Self, noalias child: Self) void {
     child.next = self.child;
     self.child = child;
 }
-fn is_hollow() void {
-    unreachable;
+
+pub fn new(k: K, allocator: Allocator) Self {
+    const ret = allocator.create(@This()) catch unreachable;
+    ret.* = .{ .key = k };
+    return ret;
 }
+
+pub fn delete(self: Self) void {
+    self.key = null;
+}
+
+//normalize
+pub fn min(self: Self) K {
+    return self.?.key;
+}
+
 //meld
-pub fn link(noalias a: *Self, noalias b: *Self) *Self {
+pub fn link(noalias a: Self, noalias b: Self) Self {
     //change to cmp operator
-    if (a.key >= b.key) {
+    //just simply let hollow node as -inf key
+    if (a.key.? >= b.key.?) { //or when b is hollow
         b.add_child(a);
         return b;
     } else {
@@ -63,7 +57,7 @@ pub fn link(noalias a: *Self, noalias b: *Self) *Self {
 //add meld?
 
 //create is enough, don't need whole Allocator
-pub fn decrease(self: *Self, entry: *Self, newkey: K, allocator: Allocator) *Self {
+pub fn decrease(self: Self, entry: Self, newkey: K, allocator: Allocator) Self {
     //this is simply optimization,
     //unnecessary it seems
     if (self == entry) {
@@ -71,30 +65,24 @@ pub fn decrease(self: *Self, entry: *Self, newkey: K, allocator: Allocator) *Sel
         return self;
     }
     //todo : proper error handling
-    const v = allocator.create(Self) catch unreachable;
-    v.* = Self{
+    const v = allocator.create(@This()) catch unreachable;
+    v.* = .{
         .key = newkey,
-        .item = entry.item,
         .child = entry,
         .rank = entry.rank -| 2,
     };
-    entry.item = null;
+    entry.key = null;
     entry.mom = v;
     return link(v, self);
 }
 
-pub fn delete(self: *Self) void {
-    self.item = null;
-}
-
-pub fn normalize(self: *Self, allocator: Allocator) ?*Self {
-    if (self.item != null) return self;
-
-    var h: ?*Self = self;
-    var A = [1]?*Self{null} ** max_rank;
+pub fn normalize(self: Self, allocator: Allocator) ?Self {
+    if (self.key != null) return self;
+    var A = [1]?Self{null} ** max_rank;
     var real_max_rank: Rank = 0;
+
+    var h: ?Self = self;
     while (h) |v| {
-        _ = allocator;
         defer allocator.destroy(v);
         h = v.next;
         //loop for all child of h
@@ -102,8 +90,7 @@ pub fn normalize(self: *Self, allocator: Allocator) ?*Self {
         while (ww) |w| {
             var u = w;
             ww = w.next;
-            //one of case a,b,c
-            if (u.item == null) {
+            if (u.key == null) {
                 //case a
                 if (u.mom == null) {
                     // h.child = u.next;
@@ -113,13 +100,10 @@ pub fn normalize(self: *Self, allocator: Allocator) ?*Self {
                 } else {
                     //case b
                     if (u.mom == v) {
-                        //v is last child
                         ww = null;
                     }
                     //case c
-                    else {
-                        u.next = null;
-                    }
+                    else u.next = null;
                     u.mom = null;
                 }
             }
@@ -144,8 +128,8 @@ pub fn normalize(self: *Self, allocator: Allocator) ?*Self {
 }
 
 //unranked-links
-fn fold_links(arr: []?*Self) ?*Self {
-    var ret: ?*Self = null;
+fn fold_links(arr: []?Self) ?Self {
+    var ret: ?Self = null;
     for (arr) |x| {
         if (x) |y| {
             ret = if (ret) |t| link(t, y) else y;
