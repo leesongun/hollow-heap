@@ -10,7 +10,7 @@ const assert = std.debug.assert;
 
 const K = usize;
 const V = usize;
-const max_rank = 32;
+const max_rank = 50;
 const Rank = std.math.IntFittingRange(0, max_rank);
 
 //change to *@This()?
@@ -43,8 +43,8 @@ fn min(noalias self: *Self) V {
     return self.item orelse unreachable;
 }
 fn add_child(noalias self: *Self, noalias child: *Self) void {
-    child.*.next = self.child;
-    self.*.child = child;
+    child.next = self.child;
+    self.child = child;
 }
 fn is_hollow() void {
     unreachable;
@@ -94,6 +94,8 @@ pub fn normalize(self: *Self, allocator: Allocator) ?*Self {
     var A = [1]?*Self{null} ** max_rank;
     var real_max_rank: Rank = 0;
     while (h) |v| {
+        _ = allocator;
+        defer allocator.destroy(v);
         h = v.next;
         //loop for all child of h
         var ww = v.child;
@@ -104,6 +106,8 @@ pub fn normalize(self: *Self, allocator: Allocator) ?*Self {
             if (u.item == null) {
                 //case a
                 if (u.mom == null) {
+                    // h.child = u.next;
+                    // assert(u.next == null);
                     u.next = h;
                     h = u;
                 } else {
@@ -121,8 +125,10 @@ pub fn normalize(self: *Self, allocator: Allocator) ?*Self {
             }
             //case d
             else {
+                u.next = null;
                 //do ranked link
                 while (A[u.rank]) |x| {
+                    assert(x != u);
                     u = link(u, x);
                     A[u.rank] = null;
                     u.rank += 1;
@@ -132,17 +138,17 @@ pub fn normalize(self: *Self, allocator: Allocator) ?*Self {
                     real_max_rank = u.rank + 1;
                 }
             }
-            allocator.destroy(v);
         }
     }
-    //do unranked links
-    var ret = h; // which is null
-    //up to real_max_rank in paper
-    //don't really matter in reality?
-    for (A[0..real_max_rank]) |x| {
+    return fold_links(A[0..real_max_rank]);
+}
+
+//unranked-links
+fn fold_links(arr: []?*Self) ?*Self {
+    var ret: ?*Self = null;
+    for (arr) |x| {
         if (x) |y| {
             ret = if (ret) |t| link(t, y) else y;
-            //deleting A[i] don't have any meaning
         }
     }
     return ret;
