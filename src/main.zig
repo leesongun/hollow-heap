@@ -8,8 +8,8 @@ const std = @import("std");
 const Allocator = std.mem.Allocator;
 const assert = std.debug.assert;
 
-const K = u32;
-const V = u32;
+const K = usize;
+const V = usize;
 const max_rank = 32;
 const Rank = std.math.IntFittingRange(0, max_rank);
 
@@ -30,7 +30,7 @@ mom: ?*Self = null,
 rank: Rank = 0,
 
 pub fn new(k: K, v: V, allocator: Allocator) *Self {
-    const ret = try allocator.create(Self) catch unreachable;
+    const ret = allocator.create(Self) catch unreachable;
     ret.* = Self{
         .key = k,
         .item = v,
@@ -71,12 +71,12 @@ pub fn decrease(self: *Self, entry: *Self, newkey: K, allocator: Allocator) *Sel
         return self;
     }
     //todo : proper error handling
-    const v = try allocator.create(Self) catch unreachable;
+    const v = allocator.create(Self) catch unreachable;
     v.* = Self{
         .key = newkey,
         .item = entry.item,
         .child = entry,
-        .rank = u.rank -| 2,
+        .rank = entry.rank -| 2,
     };
     entry.item = null;
     entry.mom = v;
@@ -84,31 +84,31 @@ pub fn decrease(self: *Self, entry: *Self, newkey: K, allocator: Allocator) *Sel
 }
 
 pub fn delete(self: *Self) void {
-    a.item = null;
+    self.item = null;
 }
 
 pub fn normalize(self: *Self, allocator: Allocator) ?*Self {
-    if (self.item != null) break;
+    if (self.item != null) return self;
 
     var h: ?*Self = self;
     var A = [1]?*Self{null} ** max_rank;
     var real_max_rank: Rank = 0;
-    while (h != null) |v| {
-        h = h.next;
+    while (h) |v| {
+        h = v.next;
         //loop for all child of h
-        var ww = h.child;
+        var ww = v.child;
         while (ww) |w| {
             var u = w;
             ww = w.next;
             //one of case a,b,c
             if (u.item == null) {
                 //case a
-                if (u.ep == null) {
+                if (u.mom == null) {
                     u.next = h;
                     h = u;
                 } else {
                     //case b
-                    if (u.ep == v) {
+                    if (u.mom == v) {
                         //v is last child
                         ww = null;
                     }
@@ -116,7 +116,7 @@ pub fn normalize(self: *Self, allocator: Allocator) ?*Self {
                     else {
                         u.next = null;
                     }
-                    u.ep = null;
+                    u.mom = null;
                 }
             }
             //case d
