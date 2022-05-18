@@ -1,29 +1,31 @@
 This repository implements hollow heap. 
 
-A hollow heap organizes data in a DAG satisfying:
-1. has zero or one root
-2. each node has at most two parents
-3. satisfies heap ordering condition
-4. Each node is either hollow or data-full.
+A hollow heap is a DAG with following properties.
+1. It has zero or one root.
+2. A node has at most two parents.
+3. A node is either hollow or full.
+4. A node with two parents is hollow.
+5. A node's key is not greater than its child's. 
 
-Order of parents is unimportant in theory, but for optimized implementation it matters, as it adds another invariant 
-1. every node is last child in second parent, if exists.
-
-For the sake of simplicity, we assume that the DAG is not empty from now on.
-Primitive Operations are : 
+All primitive operations are lazy. For simplicity, we assume the DAG is not empty.
 ```Python
 fn get():
     a
 ```
-All operations are lazy, and the only nontrivial part is normalization
 
+The nontrivial part is normalization, which makes the root a full node. This is done in three steps.
+1. remove hollow roots recursively by following orphans
+2. for two roots with same rank, link them and bump rank
+3. link remaining roots from small rank
 ```Python
 fn normalize():
 
 #do something
 ```
+Normalization condition is only violated when you delete min. 
 
-In short, it removes hollow roots by recursively following orphans, and for new roots, link two with same rank, and then finally we link them all.
+For implementation, we order parent and children with the time of addition, giving another invariant:
+1. A node with a second parent is the last child of it.
 
 In this implementation, we use following fields
 ```Zig
