@@ -4,7 +4,7 @@
 //and potentially
 //https://github.com/ziglang/zig/issues/3952
 
-//! requires somewhat allocator 
+//! requires somewhat allocator
 //! to remove
 
 const std = @import("std");
@@ -70,12 +70,12 @@ pub fn decrease(self: Self, entry: Self, newkey: K, allocator: Allocator) Self {
     assert(entry.mom == null);
     //todo : proper error handling
     entry.mom = allocator.create(@This()) catch unreachable;
-    entry.mom.* = .{
+    entry.mom.?.* = .{
         .key = newkey,
         .child = entry,
         .rank = entry.rank -| 2,
     };
-    return entry.mom.link(self);
+    return entry.mom.?.link(self);
 }
 
 pub fn normalize(self: Self, allocator: Allocator) ?Self {
@@ -139,7 +139,6 @@ pub fn normalize(self: Self, allocator: Allocator) ?Self {
 // pub fn normalize_early_stop(self: Self, allocator: Allocator) ?Self {
 
 // }
-
 
 //unranked-links
 fn unranked_links(arr: []?Self) ?Self {
