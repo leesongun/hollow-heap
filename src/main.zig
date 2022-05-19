@@ -54,6 +54,8 @@ pub fn min(self: Self) K {
 }
 
 //add meld?
+//tie behavior is important for early stop
+//if tie, use later as root
 pub fn link(noalias a: Self, noalias b: Self) Self {
     //change to cmp operator
     return if (a.key >= b.key) b.add_child(a) else a.add_child(b);
@@ -136,10 +138,59 @@ pub fn normalize(self: Self, allocator: Allocator) ?Self {
 
 //don't remove hollow nodes that is guaranteed to have higher node than others
 //requires hollow node's key to be valid
-// pub fn normalize_early_stop(self: Self, allocator: Allocator) ?Self {
 
-// }
+pub fn normalize_early_stop(self: Self, known_key : K, allocator: Allocator) ?Self {
+    if (self.mom == null) return self;
+    var A = [1]?Self{null} ** max_rank;
+    var real_max_rank: Rank = 0;
+    var min_key = known_key;
 
+    var parent: ?Self = self;
+    while (parent) |p| {
+        //if nothing changes, try next sibling
+        parent = p.next;
+        defer allocator.destroy(p);
+
+        //loop for all child
+        var child = p.child;
+        while (child) |c| {
+            child = c.next;
+            //case d
+            if (c.mom == null or c.key >= min_key) {
+                if (c.mom == null and c.key < min_key){
+                    min_key = c.key;
+                }
+                c.next = null;
+                var cc = c;
+
+                //do ranked link
+                for (A[c.rank..]) |*y| {
+                    if (y.*) |z| {
+                        cc = cc.link(z);
+                        cc.rank += 1;
+                        y.* = null;
+                    } else {
+                        y.* = cc;
+                        break;
+                    }
+                } else unreachable;
+                if (cc.rank > real_max_rank) {
+                    real_max_rank = cc.rank;
+                }
+            } else if (c.mom == c) {
+                c.next = parent;
+                parent = c;
+            } else {
+                if (c.mom == p) {
+                    child = null;
+                } else c.next = null;
+                c.mom = c;
+            }
+        }
+    }
+
+    return unranked_links(A[0 .. real_max_rank + 1]);
+}
 //unranked-links
 fn unranked_links(arr: []?Self) ?Self {
     var ret: ?Self = null;
