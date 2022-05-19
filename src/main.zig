@@ -54,6 +54,18 @@ pub fn link(noalias a: Self, noalias b: Self) Self {
         return a;
     }
 }
+
+pub fn meld(noalias a: Self, noalias b: Self) Self {
+    //change to cmp operator
+    //just simply let hollow node as -inf key
+    if (b == null or (a != null and a.key.? >= b.key.?)) { //or when b is hollow
+        b.add_child(a);
+        return b;
+    } else {
+        a.add_child(b);
+        return a;
+    }
+}
 //add meld?
 
 //create is enough, don't need whole Allocator
