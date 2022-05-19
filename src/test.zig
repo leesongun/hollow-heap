@@ -83,8 +83,14 @@ test "heapsort with reduce key" {
         //delete min
         head.delete();
 
-        //normalize, only 
-        head = head.normalize(alloc) orelse {
+        //normalize, only
+        // head = head.normalize(alloc) orelse {
+        //     //normalizing-to-empty can only happen when `i == N - 1`
+        //     try expectEqual(i, (N - 1));
+        //     return;
+        // };
+
+        head = head.normalize_early_stop(M * N * N, alloc) orelse {
             //normalizing-to-empty can only happen when `i == N - 1`
             try expectEqual(i, (N - 1));
             return;

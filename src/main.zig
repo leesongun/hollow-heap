@@ -138,7 +138,7 @@ pub fn normalize(self: Self, allocator: Allocator) ?Self {
 
 //don't remove hollow nodes that is guaranteed to have higher node than others
 //requires hollow node's key to be valid
-
+//tie behavior of meld is important
 pub fn normalize_early_stop(self: Self, known_key: K, allocator: Allocator) ?Self {
     if (self.mom == null) return self;
     var A = [1]?Self{null} ** max_rank;
@@ -157,12 +157,6 @@ pub fn normalize_early_stop(self: Self, known_key: K, allocator: Allocator) ?Sel
             child = c.next;
             //case d
             if (c.mom == null or (c.key >= min_key and c.mom == c)) {
-                if (c.mom != null) {
-                    if (c.mom == p) {
-                        child = null;
-                    } else c.next = null;
-                    c.mom = c;
-                }
                 if (c.mom == null and c.key < min_key) {
                     min_key = c.key;
                 }
