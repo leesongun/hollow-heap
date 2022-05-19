@@ -4,6 +4,9 @@
 //and potentially
 //https://github.com/ziglang/zig/issues/3952
 
+//! requires somewhat allocator 
+//! to remove
+
 const std = @import("std");
 const Allocator = std.mem.Allocator;
 const assert = std.debug.assert;
@@ -29,16 +32,8 @@ fn add_child(noalias self: Self, noalias child: Self) Self {
     return self;
 }
 
-fn is_hollow(self: Self) bool {
-    return self.mom != null;
-}
-
-//make hollow node
-//not recommended
-pub fn empty(allocator: Allocator) Self {
-    const ret = allocator.create(@This()) catch unreachable;
-    ret.* = .{ .key = null };
-    return ret;
+fn is_full(self: Self) bool {
+    return self.mom == null;
 }
 
 pub fn new(k: K, allocator: Allocator) Self {
@@ -72,15 +67,15 @@ pub fn decrease(self: Self, entry: Self, newkey: K, allocator: Allocator) Self {
         self.key = newkey;
         return self;
     }
+    assert(entry.mom == null);
     //todo : proper error handling
-    const v = allocator.create(@This()) catch unreachable;
-    v.* = .{
+    entry.mom = allocator.create(@This()) catch unreachable;
+    entry.mom.* = .{
         .key = newkey,
         .child = entry,
         .rank = entry.rank -| 2,
     };
-    entry.mom = v;
-    return link(v, self);
+    return entry.mom.link(self);
 }
 
 pub fn normalize(self: Self, allocator: Allocator) ?Self {
@@ -88,56 +83,70 @@ pub fn normalize(self: Self, allocator: Allocator) ?Self {
     var A = [1]?Self{null} ** max_rank;
     var real_max_rank: Rank = 0;
 
-    var h: ?Self = self;
-    while (h) |v| {
-        defer allocator.destroy(v);
-        h = v.next;
-        //loop for all child of h
-        var ww = v.child;
-        while (ww) |w| {
-            var u = w;
-            ww = w.next;
+    var parent: ?Self = self;
+    while (parent) |p| {
+        //if nothing changes, try next sibling
+        parent = p.next;
+        defer allocator.destroy(p);
+
+        //loop for all child
+        var child = p.child;
+        while (child) |c| {
+            child = c.next;
             //case d
-            if (u.mom == null) {
-                u.next = null;
+            if (c.mom == null) {
+                c.next = null;
+                var cc = c;
+
                 //do ranked link
-                while (A[u.rank]) |x| {
-                    assert(x != u);
-                    u = link(u, x);
-                    A[u.rank] = null;
-                    u.rank += 1;
+                for (A[c.rank..]) |*y| {
+                    if (y.*) |z| {
+                        cc = cc.link(z);
+                        cc.rank += 1;
+                        y.* = null;
+                    } else {
+                        y.* = cc;
+                        break;
+                    }
+                } else unreachable;
+                if (cc.rank > real_max_rank) {
+                    real_max_rank = cc.rank;
                 }
-                A[u.rank] = u;
-                if (u.rank >= real_max_rank) {
-                    real_max_rank = u.rank + 1;
-                }
-            } //case a
-            else if (u.mom == u) {
-                // h.child = u.next;
-                // assert(u.next == null);
-                u.next = h;
-                h = u;
+            } else if (c.mom == c) {
+                c.next = parent;
+                parent = c;
             } else {
-                //case b
-                if (u.mom == v) {
-                    ww = null;
-                }
-                //case c
-                else u.next = null;
-                u.mom = u;
+                if (c.mom == p) {
+                    child = null;
+                } else c.next = null;
+                c.mom = c;
             }
         }
     }
 
-    return fold_links(A[0..real_max_rank]);
+    return unranked_links(A[0 .. real_max_rank + 1]);
 }
+// is it better to simply reserve rank 0/rank -1 for hollow node?
+
+//doing only one step of normalization
+//just to show how it works
+// pub fn normalize_one_step(){
+
+// }
+
+//don't remove hollow nodes that is guaranteed to have higher node than others
+//requires hollow node's key to be valid
+// pub fn normalize_early_stop(self: Self, allocator: Allocator) ?Self {
+
+// }
+
 
 //unranked-links
-fn fold_links(arr: []?Self) ?Self {
+fn unranked_links(arr: []?Self) ?Self {
     var ret: ?Self = null;
     for (arr) |x| {
         if (x) |y| {
-            ret = if (ret) |t| link(t, y) else y;
+            ret = if (ret) |t| y.link(t) else y;
         }
     }
     return ret;
