@@ -31,7 +31,7 @@ test "heapsort" {
 test "heapsort with reduce key" {
     var rand = prng.init(1);
     var data: [N]usize = undefined;
-    var nodes: [N]*Queue = undefined;
+    var nodes: [N]?*Queue = undefined;
 
     //initialize shuffled data
     for (data) |*x, i| {
@@ -45,9 +45,9 @@ test "heapsort with reduce key" {
     }
 
     //meld nodes
-    var head = nodes[0];
+    var head = nodes[0].?;
     for (nodes[1..]) |x| {
-        head = head.link(x);
+        head = head.link(x.?);
     }
 
     for (data) |_, i| {
@@ -56,15 +56,25 @@ test "heapsort with reduce key" {
         }
         rand.random().shuffle(usize, data[i..]);
 
-        for (nodes[i..]) |*x, j| {
-            head = head.decrease(x.*, data[i + j], alloc);
+        var t = i;
+        for (nodes) |*x| {
+            if (x.*) |y| {
+                head = head.decrease(y, data[t], alloc);
+                t += 1;
+                x.* = y.mom orelse y;
+            }
+        }
+        try expectEqual(t, N);
+        try expectEqual(head.key, (N - i - 1) * M);
 
-            x.* = x.*.mom orelse x.*;
+        //remove pointer to going-to-remove node
+        for (nodes) |*x| {
+            if (x.* == head)
+                x.* = null;
         }
 
-        try expectEqual(head.key, (N - i - 1) * M);
-        // try expectEqual(head.key, N * M + i);
         head.delete();
+
         head = head.normalize(alloc) orelse {
             try expectEqual(i, (N - 1));
             return;
