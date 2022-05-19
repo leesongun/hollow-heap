@@ -139,6 +139,14 @@ pub fn normalize(self: Self, allocator: Allocator) ?Self {
 //don't remove hollow nodes that is guaranteed to have higher node than others
 //requires hollow node's key to be valid
 //tie behavior of meld is important
+//known_key : suspsected minimum 
+//lesser than actual `known_key` : too early stop, possibly result in hollow root
+//larger than actual `known_key` : later stop, possibly result in slight eager contraction of hollow root
+//`slight` : because we update known_key &
+// first child is likely to have high rank
+// so it is likely to have low key
+// so heuristically speaking, low keys are considered first
+// which means known_key is updated very fast
 pub fn normalize_early_stop(self: Self, known_key: K, allocator: Allocator) ?Self {
     if (self.mom == null) return self;
     var A = [1]?Self{null} ** max_rank;
@@ -157,6 +165,7 @@ pub fn normalize_early_stop(self: Self, known_key: K, allocator: Allocator) ?Sel
             child = c.next;
             //case d
             if (c.mom == null or (c.key >= min_key and c.mom == c)) {
+                //update is unneeded if min_key is correct
                 if (c.mom == null and c.key < min_key) {
                     min_key = c.key;
                 }
