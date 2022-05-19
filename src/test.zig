@@ -33,7 +33,7 @@ test "heapsort with reduce key" {
     var data: [N]usize = undefined;
     var nodes: [N]?*Queue = undefined;
 
-    //initialize shuffled data
+    //prepare random array
     for (data) |*x, i| {
         x.* = i + M * N;
     }
@@ -50,12 +50,15 @@ test "heapsort with reduce key" {
         head = head.link(x.?);
     }
 
+    //test `N` rounds
     for (data) |_, i| {
+        //prepare random array
         for (data[i..]) |*x, j| {
             x.* = j + M * (N - i - 1);
         }
         rand.random().shuffle(usize, data[i..]);
 
+        //decrease each node
         var t = i;
         for (nodes) |*x| {
             if (x.*) |y| {
@@ -64,7 +67,11 @@ test "heapsort with reduce key" {
                 x.* = y.mom orelse y;
             }
         }
+
+        //test number of non-null nodes
         try expectEqual(t, N);
+
+        //test heap min result
         try expectEqual(head.key, (N - i - 1) * M);
 
         //remove pointer to going-to-remove node
@@ -73,12 +80,14 @@ test "heapsort with reduce key" {
                 x.* = null;
         }
 
+        //delete min
         head.delete();
 
+        //normalize, only 
         head = head.normalize(alloc) orelse {
+            //normalizing-to-empty can only happen when `i == N - 1`
             try expectEqual(i, (N - 1));
             return;
         };
     }
-    // rand.Random.bytes(256);
 }
