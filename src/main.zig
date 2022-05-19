@@ -1,3 +1,4 @@
+//!testing doc comment
 //https://github.com/ziglang/zig/issues/1108
 
 //and potentially
@@ -11,10 +12,10 @@ const K = usize;
 const max_rank = 50;
 const Rank = std.math.IntFittingRange(0, max_rank);
 
-//change to *@This()?
 const Self = *@This();
+pub const Queue = ?Self;
 
-key: ?K,
+key: K,
 child: ?Self = null,
 //younger sibling
 next: ?Self = null,
@@ -22,9 +23,22 @@ next: ?Self = null,
 mom: ?Self = null,
 rank: Rank = 0,
 
-fn add_child(noalias self: Self, noalias child: Self) void {
+fn add_child(noalias self: Self, noalias child: Self) Self {
     child.next = self.child;
     self.child = child;
+    return self;
+}
+
+fn is_hollow(self: Self) bool {
+    return self.mom != null;
+}
+
+//make hollow node
+//not recommended
+pub fn empty(allocator: Allocator) Self {
+    const ret = allocator.create(@This()) catch unreachable;
+    ret.* = .{ .key = null };
+    return ret;
 }
 
 pub fn new(k: K, allocator: Allocator) Self {
@@ -34,44 +48,26 @@ pub fn new(k: K, allocator: Allocator) Self {
 }
 
 pub fn delete(self: Self) void {
-    self.key = null;
+    assert(self.mom == null);
+    self.mom = self;
 }
 
 //normalize
 pub fn min(self: Self) K {
-    return self.?.key;
+    assert(self.mom == null);
+    return self.key;
 }
 
-//meld
+//add meld?
 pub fn link(noalias a: Self, noalias b: Self) Self {
     //change to cmp operator
-    //just simply let hollow node as -inf key
-    if (a.key.? >= b.key.?) { //or when b is hollow
-        b.add_child(a);
-        return b;
-    } else {
-        a.add_child(b);
-        return a;
-    }
+    return if (a.key >= b.key) b.add_child(a) else a.add_child(b);
 }
-
-pub fn meld(noalias a: Self, noalias b: Self) Self {
-    //change to cmp operator
-    //just simply let hollow node as -inf key
-    if (b == null or (a != null and a.key.? >= b.key.?)) { //or when b is hollow
-        b.add_child(a);
-        return b;
-    } else {
-        a.add_child(b);
-        return a;
-    }
-}
-//add meld?
 
 //create is enough, don't need whole Allocator
+/// decrease-key
 pub fn decrease(self: Self, entry: Self, newkey: K, allocator: Allocator) Self {
-    //this is simply optimization,
-    //unnecessary it seems
+    //this is simply optimization, unnecessary
     if (self == entry) {
         self.key = newkey;
         return self;
@@ -83,13 +79,12 @@ pub fn decrease(self: Self, entry: Self, newkey: K, allocator: Allocator) Self {
         .child = entry,
         .rank = entry.rank -| 2,
     };
-    entry.key = null;
     entry.mom = v;
     return link(v, self);
 }
 
 pub fn normalize(self: Self, allocator: Allocator) ?Self {
-    if (self.key != null) return self;
+    if (self.mom == null) return self;
     var A = [1]?Self{null} ** max_rank;
     var real_max_rank: Rank = 0;
 
@@ -102,25 +97,8 @@ pub fn normalize(self: Self, allocator: Allocator) ?Self {
         while (ww) |w| {
             var u = w;
             ww = w.next;
-            if (u.key == null) {
-                //case a
-                if (u.mom == null) {
-                    // h.child = u.next;
-                    // assert(u.next == null);
-                    u.next = h;
-                    h = u;
-                } else {
-                    //case b
-                    if (u.mom == v) {
-                        ww = null;
-                    }
-                    //case c
-                    else u.next = null;
-                    u.mom = null;
-                }
-            }
             //case d
-            else {
+            if (u.mom == null) {
                 u.next = null;
                 //do ranked link
                 while (A[u.rank]) |x| {
@@ -133,9 +111,24 @@ pub fn normalize(self: Self, allocator: Allocator) ?Self {
                 if (u.rank >= real_max_rank) {
                     real_max_rank = u.rank + 1;
                 }
+            } //case a
+            else if (u.mom == u) {
+                // h.child = u.next;
+                // assert(u.next == null);
+                u.next = h;
+                h = u;
+            } else {
+                //case b
+                if (u.mom == v) {
+                    ww = null;
+                }
+                //case c
+                else u.next = null;
+                u.mom = u;
             }
         }
     }
+
     return fold_links(A[0..real_max_rank]);
 }
 
