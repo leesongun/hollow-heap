@@ -1,9 +1,10 @@
 # Introduction
-This repository implements the lazy heap, a modification of the [hollow heap](https://arxiv.org/abs/1510.06535).
+This repository implements the lazy heap, a slight modification of the [hollow heap](https://arxiv.org/abs/1510.06535).
 ## Goals 
 1. Aim for a concise, well-documented implementation.
 ## Non-Goals
 1. Optimize for real-world performance. - Lazy heap is not intended to have good real-world performance
+## Directory Structure
 # Lazy Heap
 A lazy heap is a DAG with following properties.
 1. It has zero or one root.
@@ -40,23 +41,23 @@ def normalize(h):
 Normalization condition is only violated when you delete min. 
 
 
-## Rebuild
+## Rebuild (Eager-Apply)
 Rebuilding removes all hollow nodes. It mitigates unboundedness of size, which is due to laziness. 
-## 
-
+### Naive
+1. Remove all hollow nodes. 
+2. Meld remaining nodes. 
+### Reduce
+1. For each node with two parent, remove one parent.
+2. Remove all hollow node, preserving descendant relation.
 # Implementation
 For complete documentation, visit [here](github.com). This explains higher level differences. 
 ## Ordering
-
 For implementation, we order parent and children with the time of addition, giving another invariant:
 1. A node with a second parent is the last child of it.
-
+## Representaiton
+1. ...
+2. .l..
 ## Fields
 In this implementation, we use following fields
 ```Zig
 ```
-
-
-
-
-
