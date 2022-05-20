@@ -36,38 +36,57 @@ fn is_full(self: Self) bool {
     return self.mom == null;
 }
 
+
+/// @brief 
+/// @param K 
+/// @param
 pub fn new(k: K, allocator: Allocator) Self {
     const ret = allocator.create(@This()) catch unreachable;
     ret.* = .{ .key = k };
     return ret;
 }
 
-pub fn delete(self: Self) void {
-    assert(self.mom == null);
-    self.mom = self;
+/// @brief delete an entry
+/// @param entry entry to delete
+pub fn delete(entry: Self) void {
+    assert(entry.mom == null);
+    entry.mom = entry;
 }
 
-//normalize
-pub fn min(self: Self) K {
-    assert(self.mom == null);
-    return self.key;
+//normalize before 
+/// @brief minimum key, requires full root
+/// @param root root
+/// @return minimum key, key of root entry
+pub fn min(root: Self) K {
+    assert(root.mom == null);
+    return root.key;
 }
 
 //add meld?
 //tie behavior is important for early stop
 //if tie, use later as root
+/// @brief meld two heaps
+/// @param a first heap root
+/// @param b second heap root
+/// @return new heap root, equal to eiter a or b
 pub fn link(noalias a: Self, noalias b: Self) Self {
     //change to cmp operator
     return if (a.key >= b.key) b.add_child(a) else a.add_child(b);
 }
 
 //create is enough, don't need whole Allocator
-/// decrease-key
-pub fn decrease(self: Self, entry: Self, newkey: K, allocator: Allocator) Self {
+/// @brief decrease key of an entry
+/// @param root heap root
+/// @param entry entry to decrease
+/// @param newkey new key
+/// @param allocator allocator to allocate new node
+/// @return new heap root
+/// this changes entry for given node, 
+pub fn decrease(root: Self, entry: Self, newkey: K, allocator: Allocator) Self {
     //this is simply optimization, unnecessary
-    if (self == entry) {
-        self.key = newkey;
-        return self;
+    if (root == entry) {
+        root.key = newkey;
+        return root;
     }
     assert(entry.mom == null);
     //todo : proper error handling
@@ -77,15 +96,19 @@ pub fn decrease(self: Self, entry: Self, newkey: K, allocator: Allocator) Self {
         .child = entry,
         .rank = entry.rank -| 2,
     };
-    return entry.mom.?.link(self);
+    return entry.mom.?.link(root);
 }
 
-pub fn normalize(self: Self, allocator: Allocator) ?Self {
-    if (self.mom == null) return self;
+/// @brief recursively remove hollow roots
+/// @param root heap root
+/// @param allocator allocator
+/// @return new heap root
+pub fn normalize(root: Self, allocator: Allocator) ?Self {
+    if (root.mom == null) return root;
     var A = [1]?Self{null} ** max_rank;
     var real_max_rank: Rank = 0;
 
-    var parent: ?Self = self;
+    var parent: ?Self = root;
     while (parent) |p| {
         //if nothing changes, try next sibling
         parent = p.next;
@@ -147,13 +170,13 @@ pub fn normalize(self: Self, allocator: Allocator) ?Self {
 // so it is likely to have low key
 // so heuristically speaking, low keys are considered first
 // which means known_key is updated very fast
-pub fn normalize_early_stop(self: Self, known_key: K, allocator: Allocator) ?Self {
-    if (self.mom == null) return self;
+pub fn normalize_early_stop(root: Self, known_key: K, allocator: Allocator) ?Self {
+    if (root.mom == null) return root;
     var A = [1]?Self{null} ** max_rank;
     var real_max_rank: Rank = 0;
     var min_key = known_key;
 
-    var parent: ?Self = self;
+    var parent: ?Self = root;
     while (parent) |p| {
         //if nothing changes, try next sibling
         parent = p.next;
