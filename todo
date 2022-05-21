@@ -1,0 +1,7 @@
+adding one and removing many(extension of decrease key)
+the above should be impossible
+and relies on laziness of deletion
+changing decrease key to deleting + adding node?
+does it change time complexity?
+
+delete only root & repeat until root is full (with appropriate tie) <- much more lazier it seems
