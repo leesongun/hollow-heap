@@ -1,4 +1,3 @@
-//!testing doc comment
 //https://github.com/ziglang/zig/issues/1108
 
 //and potentially
@@ -16,6 +15,7 @@ const max_rank = 50;
 const Rank = std.math.IntFittingRange(0, max_rank);
 
 const Self = *@This();
+const const_Self = *const @This();
 pub const Queue = ?Self;
 
 key: K,
@@ -23,7 +23,9 @@ child: ?Self = null,
 //younger sibling
 next: ?Self = null,
 //second parent
-mom: ?Self = null,
+//its sole purpose is to know whether access comes from first or second parent
+//of which it is last node
+mom: ?const_Self = null,
 rank: Rank = 0,
 
 fn add_child(noalias self: Self, noalias child: Self) Self {
@@ -36,9 +38,8 @@ fn is_full(self: Self) bool {
     return self.mom == null;
 }
 
-
-/// @brief 
-/// @param K 
+/// @brief
+/// @param K
 /// @param
 pub fn new(k: K, allocator: Allocator) Self {
     const ret = allocator.create(@This()) catch unreachable;
@@ -53,7 +54,7 @@ pub fn delete(entry: Self) void {
     entry.mom = entry;
 }
 
-//normalize before 
+//normalize before
 /// @brief minimum key, requires full root
 /// @param root root
 /// @return minimum key, key of root entry
@@ -69,6 +70,7 @@ pub fn min(root: Self) K {
 /// @param a first heap root
 /// @param b second heap root
 /// @return new heap root, equal to eiter a or b
+/// if key ties, use later as root
 pub fn link(noalias a: Self, noalias b: Self) Self {
     //change to cmp operator
     return if (a.key >= b.key) b.add_child(a) else a.add_child(b);
@@ -80,23 +82,24 @@ pub fn link(noalias a: Self, noalias b: Self) Self {
 /// @param entry entry to decrease
 /// @param newkey new key
 /// @param allocator allocator to allocate new node
-/// @return new heap root
-/// this changes entry for given node, 
-pub fn decrease(root: Self, entry: Self, newkey: K, allocator: Allocator) Self {
+/// @return new heap root and new entry
+pub fn decrease(root: Self, entry: Self, newkey: K, allocator: Allocator) [2]Self {
     //this is simply optimization, unnecessary
+    assert(newkey <= entry.key);
     if (root == entry) {
         root.key = newkey;
-        return root;
+        return .{ root, root };
     }
     assert(entry.mom == null);
     //todo : proper error handling
-    entry.mom = allocator.create(@This()) catch unreachable;
-    entry.mom.?.* = .{
+    const v = allocator.create(@This()) catch unreachable;
+    v.* = .{
         .key = newkey,
         .child = entry,
         .rank = entry.rank -| 2,
     };
-    return entry.mom.?.link(root);
+    entry.mom = v;
+    return .{ v.link(root), v };
 }
 
 /// @brief recursively remove hollow roots
@@ -126,6 +129,8 @@ pub fn normalize(root: Self, allocator: Allocator) ?Self {
                 //do ranked link
                 for (A[c.rank..]) |*y| {
                     if (y.*) |z| {
+                        //give hint to llvm
+                        assert(cc.rank == z.rank);
                         cc = cc.link(z);
                         cc.rank += 1;
                         y.* = null;
@@ -162,7 +167,7 @@ pub fn normalize(root: Self, allocator: Allocator) ?Self {
 //don't remove hollow nodes that is guaranteed to have higher node than others
 //requires hollow node's key to be valid
 //tie behavior of meld is important
-//known_key : suspsected minimum 
+//known_key : suspsected minimum
 //lesser than actual `known_key` : too early stop, possibly result in hollow root
 //larger than actual `known_key` : later stop, possibly result in slight eager contraction of hollow root
 //`slight` : because we update known_key &

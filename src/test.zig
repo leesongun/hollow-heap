@@ -4,7 +4,6 @@ const prng = std.rand.DefaultPrng;
 const alloc = std.heap.page_allocator;
 const expectEqual = std.testing.expectEqual;
 const N = 255;
-const M = 1; //number of decrease key per round
 
 test "heapsort" {
     var rand = prng.init(1);
@@ -35,7 +34,7 @@ test "heapsort with reduce key" {
 
     //prepare random array
     for (data) |*x, i| {
-        x.* = i + M * N;
+        x.* = i + N * N;
     }
     rand.random().shuffle(usize, &data);
 
@@ -54,7 +53,7 @@ test "heapsort with reduce key" {
     for (data) |_, i| {
         //prepare random array
         for (data[i..]) |*x, j| {
-            x.* = j + M * (N - i - 1);
+            x.* = j + N * (N - i - 1);
         }
         rand.random().shuffle(usize, data[i..]);
 
@@ -62,9 +61,10 @@ test "heapsort with reduce key" {
         var t = i;
         for (nodes) |*x| {
             if (x.*) |y| {
-                head = head.decrease(y, data[t], alloc);
+                const temp = head.decrease(y, data[t], alloc);
+                head = temp[0];
+                x.* = temp[1];
                 t += 1;
-                x.* = y.mom orelse y;
             }
         }
 
@@ -72,7 +72,7 @@ test "heapsort with reduce key" {
         try expectEqual(t, N);
 
         //test heap min result
-        try expectEqual(head.key, (N - i - 1) * M);
+        try expectEqual(head.key, (N - i - 1) * N);
 
         //remove pointer to going-to-remove node
         for (nodes) |*x| {
@@ -90,7 +90,7 @@ test "heapsort with reduce key" {
         //     return;
         // };
 
-        head = head.normalize_early_stop(M * N * N, alloc) orelse {
+        head = head.normalize_early_stop(N * N, alloc) orelse {
             //normalizing-to-empty can only happen when `i == N - 1`
             try expectEqual(i, (N - 1));
             return;
