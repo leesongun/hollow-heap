@@ -12,6 +12,19 @@ A lazy heap is a DAG with following properties.
 3. A node is either hollow or full.
 4. A node with two parents is hollow.
 5. A node's key is not greater than its child's. 
+```Nim
+# this is pseudocode, it won't compile
+type
+  NodeKind = enum   # the different node types
+    full            # full node
+    hollow          # hollow node
+    two_parent      # hollow node with two parents
+  Node = ref object
+    kind: NodeKind
+    key: Int
+    rank: Unsigned
+    child: [Node]
+```
 ## Primitive Operations
 All primitive operations are lazy. We omit empty cases for simplicity.
 ```Python
@@ -26,7 +39,6 @@ def link(g, h):
 def delete(h):
     h.value = null
 ```
-
 ## Normalize
 Normalization makes the root a full node. It is done in three steps.
 1. recursively remove hollow nodes by following orphans
