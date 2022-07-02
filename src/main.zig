@@ -28,13 +28,13 @@ next: ?Self = null,
 mom: ?const_Self = null,
 rank: Rank = 0,
 
-fn add_child(noalias self: Self, noalias child: Self) Self {
+fn addChild(noalias self: Self, noalias child: Self) Self {
     child.next = self.child;
     self.child = child;
     return self;
 }
 
-fn is_full(self: Self) bool {
+fn isFull(self: Self) bool {
     return self.mom == null;
 }
 
@@ -73,7 +73,7 @@ pub fn min(root: Self) K {
 /// if key ties, use later as root
 pub fn link(noalias a: Self, noalias b: Self) Self {
     //change to cmp operator
-    return if (a.key >= b.key) b.add_child(a) else a.add_child(b);
+    return if (a.key >= b.key) b.addChild(a) else a.addChild(b);
 }
 
 //create is enough, don't need whole Allocator
